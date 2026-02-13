@@ -11,20 +11,22 @@ steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['push', 'gcr.io/$PROJECT_ID/sample-python:$SHORT_SHA']
 
-  # Passo 3: Deploy no Cloud Run
+  # Passo 3: Deploy no Cloud Run (Atualizado)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
-      - 'sample-python' # Nome do seu serviço no Cloud Run
+      - 'sample-python'
       - '--image'
       - 'gcr.io/$PROJECT_ID/sample-python:$SHORT_SHA'
       - '--region'
-      - 'europe-west1' # A região que você está usando
+      - 'europe-west1'
       - '--platform'
       - 'managed'
-      - '--allow-unauthenticated' # Permite acesso público (remova se for privado)
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'FLASK_APP=main.py'
 
 images:
   - 'gcr.io/$PROJECT_ID/sample-python:$SHORT_SHA'
