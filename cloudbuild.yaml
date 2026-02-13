@@ -1,0 +1,33 @@
+steps:
+  # Passo 1: Build da imagem usando Buildpacks (identifica que é Python sozinho)
+  - name: 'gcr.io/k8s-skaffold/pack'
+    args:
+      - 'build'
+      - 'gcr.io/$PROJECT_ID/sample-python:$SHORT_SHA'
+      - '--builder'
+      - 'gcr.io/buildpacks/builder'
+
+  # Passo 2: Push da imagem para o Registry (GCR)
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/sample-python:$SHORT_SHA']
+
+  # Passo 3: Deploy no Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'sample-python' # Nome do seu serviço no Cloud Run
+      - '--image'
+      - 'gcr.io/$PROJECT_ID/sample-python:$SHORT_SHA'
+      - '--region'
+      - 'europe-west1' # A região que você está usando
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated' # Permite acesso público (remova se for privado)
+
+images:
+  - 'gcr.io/$PROJECT_ID/sample-python:$SHORT_SHA'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
