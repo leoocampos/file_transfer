@@ -1,0 +1,18 @@
+steps:
+  # Passo 1: Build & Deploy unificados (O jeito mais robusto)
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'function-file-transfer'
+      - '--source'
+      - '.' 
+      - '--region'
+      - 'europe-west1'
+      - '--allow-unauthenticated'
+      - '--set-env-vars'
+      - 'FLASK_APP=main.py'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
