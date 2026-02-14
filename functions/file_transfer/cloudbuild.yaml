@@ -1,11 +1,13 @@
 steps:
-  # Passo 1: Build da imagem usando Buildpacks (identifica que é Python sozinho)
+  # Passo 1: Adicionamos o ponto (.) para indicar o contexto e o --path para a subpasta
   - name: 'gcr.io/k8s-skaffold/pack'
     args:
       - 'build'
       - 'gcr.io/$PROJECT_ID/sample-python:$SHORT_SHA'
       - '--builder'
       - 'gcr.io/buildpacks/builder'
+      - '--path'
+      - 'functions/file_transfer' # <--- O caminho para onde está o seu código
 
   # Passo 2: Push da imagem para o Registry (GCR)
   - name: 'gcr.io/cloud-builders/docker'
