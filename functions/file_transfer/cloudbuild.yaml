@@ -1,5 +1,5 @@
 steps:
-  # Passo 1: O Buildpack agora usa '.' porque o gatilho já entra na pasta certa
+  # Passo 1: Build usando o contexto da pasta atual (.)
   - name: 'gcr.io/k8s-skaffold/pack'
     args:
       - 'build'
@@ -7,7 +7,7 @@ steps:
       - '--builder'
       - 'gcr.io/buildpacks/builder'
       - '--path'
-      - '.' # <-- O ponto indica "esta pasta"
+      - '.' 
 
   # Passo 2: Push
   - name: 'gcr.io/cloud-builders/docker'
@@ -30,3 +30,9 @@ steps:
 
 images:
   - 'gcr.io/$PROJECT_ID/function-file-transfer:$SHORT_SHA'
+
+# ESTA SEÇÃO RESOLVE O ERRO DE LOGS
+options:
+  logging: CLOUD_LOGGING_ONLY
+  # Adicionamos esta linha para garantir que ele use o comportamento padrão de logs da região
+  default_logs_bucket_behavior: REGIONAL_USER_OWNED_BUCKET
