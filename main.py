@@ -53,12 +53,12 @@ def mover_para_bucket(drive_service, bucket, file_id, file_name):
         bucket.blob(file_name).upload_from_filename(temp_path)
 
         # 3️⃣ Remove do Drive (MOVE real)
-        drive_service.files().delete(fileId=file_id).execute()
+        drive_service.files().update(fileId=file_id, body={'trashed': True}).execute()
 
-        logging.info(f"Arquivo movido com sucesso: {file_name}")
+        logging.info(f"Arquivo enviado ao Bucket: {file_name}")
 
     except Exception as e:
-        logging.error(f"Erro ao mover arquivo {file_name}: {e}")
+        logging.error(f"Erro ao processar arquivo {file_name}. O original permanece no Drive: {e}")
         raise
 
     finally:
