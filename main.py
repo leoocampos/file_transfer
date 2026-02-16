@@ -2,16 +2,19 @@ from flask import Flask, jsonify
 from googleapiclient.discovery import build
 from google.cloud import storage
 from google.auth import default
+from googleapiclient.errors import HttpError
 import tempfile
 import os
+import logging
 
+# =====================
 # CONFIGURAÇÕES
 # =====================
 FOLDER_ORIGEM = "12hs-FDKNkljlRuN8jslq9yaTHRUca_b4"
-FOLDER_DESTINO = "1RoCp78rwBczqxSxV4z1cO70nGFjIFkod"
 BUCKET_NAME = "sample-track-files"
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.INFO)
 
 # =====================
 # CLIENTES GCP
@@ -25,48 +28,84 @@ def get_clients():
 
 
 # =====================
-# FUNÇÕES DE NEGÓCIO
+# FUNÇÕES
 # =====================
 def listar_arquivos_pasta(drive_service, folder_id):
-    query = f"'{folder_id}' in parents and trashed=false"
-    results = drive_service.files().list(q=query).execute()
-    return results.get("files", [])
+    try:
+        query = f"'{folder_id}' in parents and trashed=false"
+        results = drive_service.files().list(q=query).execute()
+        return results.get("files", [])
+    except HttpError as e:
+        logging.error(f"Erro ao listar arquivos: {e}")
+        raise
 
 
-def copiar_para_bucket(drive_service, bucket, file_id, file_name):
-    temp_name = os.path.join(tempfile.gettempdir(), file_name)
+def mover_para_bucket(drive_service, bucket, file_id, file_name):
+    temp_path = os.path.join(tempfile.gettempdir(), file_name)
 
-    request = drive_service.files().get_media(fileId=file_id)
-    with open(temp_name, "wb") as f:
-        f.write(request.execute())
+    try:
+        # 1️⃣ Baixa do Drive
+        request = drive_service.files().get_media(fileId=file_id)
+        with open(temp_path, "wb") as f:
+            f.write(request.execute())
 
-    bucket.blob(file_name).upload_from_filename(temp_name)
-    os.remove(temp_name)
+        # 2️⃣ Upload para o Cloud Storage
+        bucket.blob(file_name).upload_from_filename(temp_path)
 
+        # 3️⃣ Remove do Drive (MOVE real)
+        drive_service.files().delete(fileId=file_id).execute()
 
-def mover_arquivo(drive_service, file_id):
-    drive_service.files().update(
-        fileId=file_id,
-        addParents=FOLDER_DESTINO,
-        removeParents=FOLDER_ORIGEM
-    ).execute()
+        logging.info(f"Arquivo movido com sucesso: {file_name}")
+
+    except Exception as e:
+        logging.error(f"Erro ao mover arquivo {file_name}: {e}")
+        raise
+
+    finally:
+        # Garante limpeza do arquivo temporário
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
 
 
 def processar_arquivos():
-    drive_service, bucket = get_clients()
-    arquivos = listar_arquivos_pasta(drive_service, FOLDER_ORIGEM)
+    try:
+        drive_service, bucket = get_clients()
+        arquivos = listar_arquivos_pasta(drive_service, FOLDER_ORIGEM)
 
-    if not arquivos:
-        return {"status": "ok", "message": "Nenhum arquivo encontrado."}
+        # ✅ Caso não tenha arquivos
+        if not arquivos:
+            logging.info("Nenhum arquivo encontrado na pasta.")
+            return {
+                "status": "ok",
+                "message": "Nenhum arquivo encontrado."
+            }, 200
 
-    for arq in arquivos:
-        copiar_para_bucket(drive_service, bucket, arq["id"], arq["name"])
-        mover_arquivo(drive_service, arq["id"])
+        arquivos_processados = 0
 
-    return {
-        "status": "success",
-        "processed_files": len(arquivos)
-    }
+        for arq in arquivos:
+            try:
+                mover_para_bucket(
+                    drive_service,
+                    bucket,
+                    arq["id"],
+                    arq["name"]
+                )
+                arquivos_processados += 1
+            except Exception as erro_individual:
+                logging.error(f"Falha ao processar {arq['name']}: {erro_individual}")
+
+        return {
+            "status": "success",
+            "processed_files": arquivos_processados
+        }, 200
+
+    except Exception as e:
+        logging.error(f"Erro geral no processamento: {e}")
+        return {
+            "status": "error",
+            "message": "Erro ao processar arquivos.",
+            "details": str(e)
+        }, 500
 
 
 # =====================
@@ -74,8 +113,8 @@ def processar_arquivos():
 # =====================
 @app.post("/")
 def file_transfer():
-    resultado = processar_arquivos()
-    return jsonify(resultado), 200
+    resultado, status_code = processar_arquivos()
+    return jsonify(resultado), status_code
 
 
 # =====================
