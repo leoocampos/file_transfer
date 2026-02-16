@@ -111,7 +111,7 @@ def processar_arquivos():
 # =====================
 # ENDPOINT CLOUD RUN
 # =====================
-@app.post("/")
+@app.post("/file_transfer")
 def file_transfer():
     resultado, status_code = processar_arquivos()
     return jsonify(resultado), status_code
