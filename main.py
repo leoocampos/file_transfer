@@ -54,7 +54,18 @@ def mover_para_bucket(drive_service, bucket, file_id, file_name):
         bucket.blob(file_name).upload_from_filename(temp_path)
 
         # 3️⃣ Lixeira (Método mais robusto)
-        drive_service.files().trash(fileId=file_id).execute()
+        try:
+            logging.info(f"Tentando mover {file_name} para a lixeira via .trash()...")
+            drive_service.files().trash(fileId=file_id).execute()
+        except Exception as e_trash:
+            logging.warning(f"Falha no .trash(), tentando via .update(): {e_trash}")
+            # Se o trash() falhar
+            drive_service.files().update(
+                fileId=file_id, 
+                body={'trashed': True}
+            ).execute()
+        
+        logging.info(f"Arquivo {file_name} processado e removido do Drive com sucesso.")
         
         return True # Retorna sucesso para o contador
     except Exception as e:
