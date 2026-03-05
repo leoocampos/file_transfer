@@ -20,7 +20,9 @@ logging.basicConfig(level=logging.INFO)
 # CLIENTES GCP
 # =====================
 def get_clients():
-    creds, _ = default()
+    SCOPES = ["https://www.googleapis.com/auth/drive"]
+
+    creds, _ = default(scopes=SCOPES)
     drive_service = build("drive", "v3", credentials=creds)
     storage_client = storage.Client()
     bucket = storage_client.bucket(BUCKET_NAME)
